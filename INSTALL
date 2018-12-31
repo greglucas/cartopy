@@ -113,9 +113,9 @@ Further information about the required dependencies can be found here:
     Python package for 2D plotting. Python package required for any
     graphical capabilities.
 
-**GEOS** 3.7.2 or later (https://trac.osgeo.org/geos/)
-    GEOS is an API of spatial predicates and functions for processing geometry
-    written in C++.
+**Matplotlib** 3.2 or later (https://matplotlib.org/)
+    Python package for 2D plotting. Python package required for any
+    graphical capabilities.
 
 **Shapely** between 1.6.4 and 1.8.4 (https://github.com/Toblerity/Shapely)
     Python package for the manipulation and analysis of planar geometric
