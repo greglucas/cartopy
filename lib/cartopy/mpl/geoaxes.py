@@ -45,6 +45,7 @@ import matplotlib.transforms as mtransforms
 import matplotlib.patches as mpatches
 import matplotlib.path as mpath
 import matplotlib.spines as mspines
+import matplotlib.tri
 import numpy as np
 import numpy.ma as ma
 import shapely.geometry as sgeom
@@ -1524,6 +1525,67 @@ class GeoAxes(matplotlib.axes.Axes):
         return result
 
     @_add_transform
+    def tricontour(self, *args, **kwargs):
+        """
+        Add the "transform" keyword to :func:`~matplotlib.pyplot.contour'.
+
+        Other Parameters
+        ----------------
+        transform
+            A :class:`~cartopy.crs.Projection`.
+
+        """
+        result = matplotlib.axes.Axes.tricontour(self, *args, **kwargs)
+
+        # We need to compute the dataLim correctly for contours.
+        # extent = mtransforms.Bbox.union([col.get_datalim(self.transData)
+        #                                  for col in result.collections])
+        # self.dataLim.update_from_data_xy(extent.get_points())
+        self.autoscale_view()
+
+        # Re-cast the contour as a GeoContourSet.
+        if isinstance(result, matplotlib.tri.TriContourSet):
+            result.__class__ = cartopy.mpl.contour.GeoTriContourSet
+        return result
+
+    @_add_transform
+    def tricontourf(self, *args, **kwargs):
+        """
+        Add the "transform" keyword to :func:`~matplotlib.pyplot.tricontourf'.
+
+        Other Parameters
+        ----------------
+        transform
+            A :class:`~cartopy.crs.Projection`.
+
+        """
+        t = kwargs['transform']
+        if isinstance(t, ccrs.Projection):
+            kwargs['transform'] = t = t._as_mpl_transform(self)
+        # Set flag to indicate correcting orientation of paths if not ccw
+        if isinstance(t, mtransforms.Transform):
+            for sub_trans, _ in t._iter_break_from_left_to_right():
+                if isinstance(sub_trans, InterProjectionTransform):
+                    if not hasattr(sub_trans, 'force_path_ccw'):
+                        sub_trans.force_path_ccw = True
+
+        result = matplotlib.axes.Axes.tricontourf(self, *args, **kwargs)
+
+        # We need to compute the dataLim correctly for contours.
+        extent = mtransforms.Bbox.union([col.get_datalim(self.transData)
+                                         for col in result.collections
+                                         if col.get_paths()])
+        self.dataLim.update_from_data_xy(extent.get_points())
+
+        self.autoscale_view()
+
+        # Re-cast the contour as a GeoTriContourSet.
+        if isinstance(result, matplotlib.tri.TriContourSet):
+            result.__class__ = cartopy.mpl.contour.GeoTriContourSet
+
+        return result
+
+    @_add_transform
     def scatter(self, *args, **kwargs):
         """
         Add the "transform" keyword to :func:`~matplotlib.pyplot.scatter'.
@@ -1760,6 +1822,26 @@ class GeoAxes(matplotlib.axes.Axes):
         result = matplotlib.axes.Axes.pcolor(self, *args, **kwargs)
 
         # Update the datalim for this pcolor.
+        limits = result.get_datalim(self.transData)
+        self.update_datalim(limits)
+
+        self.autoscale_view()
+        return result
+
+    @_add_transform
+    def tripcolor(self, *args, **kwargs):
+        """
+        Add the "transform" keyword to :func:`~matplotlib.pyplot.tripcolor'.
+
+        Other Parameters
+        ----------------
+        transform
+            A :class:`~cartopy.crs.Projection`.
+
+        """
+        result = matplotlib.axes.Axes.tripcolor(self, *args, **kwargs)
+
+        # Update the datalim for this tripcolor.
         limits = result.get_datalim(self.transData)
         self.update_datalim(limits)
 
