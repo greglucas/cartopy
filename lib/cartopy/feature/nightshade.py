@@ -14,8 +14,9 @@ from .. import crs as ccrs
 
 
 class Nightshade(ShapelyFeature):
-    def __init__(self, date=None, delta=0.1, refraction=-0.83,
-                 color="k", alpha=0.5, **kwargs):
+    def __init__(
+        self, date=None, delta=0.1, refraction=-0.83, color="k", alpha=0.5, **kwargs
+    ):
         """
         Shade the darkside of the Earth, accounting for refraction.
 
@@ -43,8 +44,7 @@ class Nightshade(ShapelyFeature):
 
         # make sure date is UTC, or naive with respect to time zones
         if date.utcoffset():
-            raise ValueError(
-                f'datetime instance must be UTC, not {date.tzname()}')
+            raise ValueError(f"datetime instance must be UTC, not {date.tzname()}")
 
         # Returns the Greenwich hour angle,
         # need longitude (opposite direction)
@@ -57,13 +57,15 @@ class Nightshade(ShapelyFeature):
             pole_lat = 90 + lat
             central_lon = 0
 
-        rotated_pole = ccrs.RotatedPole(pole_latitude=pole_lat,
-                                        pole_longitude=pole_lon,
-                                        central_rotated_longitude=central_lon)
+        rotated_pole = ccrs.RotatedPole(
+            pole_latitude=pole_lat,
+            pole_longitude=pole_lon,
+            central_rotated_longitude=central_lon,
+        )
 
-        npts = int(180/delta)
-        x = np.empty(npts*2)
-        y = np.empty(npts*2)
+        npts = int(180 / delta)
+        x = np.empty(npts * 2)
+        y = np.empty(npts * 2)
 
         # Solve the equation for sunrise/sunset:
         # https://en.wikipedia.org/wiki/Sunrise_equation#Generalized_equation
@@ -72,13 +74,14 @@ class Nightshade(ShapelyFeature):
         #       Therefore, the max/min latitude is +/- (90+refraction)
 
         # Fill latitudes up and then down
-        y[:npts] = np.linspace(-(90+refraction), 90+refraction, npts)
+        y[:npts] = np.linspace(-(90 + refraction), 90 + refraction, npts)
         y[npts:] = y[:npts][::-1]
 
         # Solve the generalized equation for omega0, which is the
         # angle of sunrise/sunset from solar noon
-        omega0 = np.rad2deg(np.arccos(np.sin(np.deg2rad(refraction)) /
-                                      np.cos(np.deg2rad(y))))
+        omega0 = np.rad2deg(
+            np.arccos(np.sin(np.deg2rad(refraction)) / np.cos(np.deg2rad(y)))
+        )
 
         # Fill the longitude values from the offset for midnight.
         # This needs to be a closed loop to fill the polygon.
@@ -87,12 +90,11 @@ class Nightshade(ShapelyFeature):
         # Positive longitudes
         x[npts:] = 180 - omega0[npts:]
 
-        kwargs.setdefault('facecolor', color)
-        kwargs.setdefault('alpha', alpha)
+        kwargs.setdefault("facecolor", color)
+        kwargs.setdefault("alpha", alpha)
 
         geom = sgeom.Polygon(np.column_stack((x, y)))
-        return super().__init__(
-            [geom], rotated_pole, **kwargs)
+        return super().__init__([geom], rotated_pole, **kwargs)
 
 
 def _julian_day(date):
@@ -127,10 +129,9 @@ def _julian_day(date):
         year -= 1
 
     B = 2 - year // 100 + (year // 100) // 4
-    C = ((second/60 + minute)/60 + hour)/24
+    C = ((second / 60 + minute) / 60 + hour) / 24
 
-    JD = (int(365.25*(year + 4716)) + int(30.6001*(month+1)) +
-          day + B - 1524.5 + C)
+    JD = int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + B - 1524.5 + C
     return JD
 
 
@@ -158,45 +159,52 @@ def _solar_position(date):
     #       so we need to convert the values from deg2rad when taking sin/cos
 
     # Centuries from J2000
-    T_UT1 = (_julian_day(date) - 2451545.0)/36525
+    T_UT1 = (_julian_day(date) - 2451545.0) / 36525
 
     # solar longitude (deg)
-    lambda_M_sun = (280.460 + 36000.771*T_UT1) % 360
+    lambda_M_sun = (280.460 + 36000.771 * T_UT1) % 360
 
     # solar anomaly (deg)
-    M_sun = (357.5277233 + 35999.05034*T_UT1) % 360
+    M_sun = (357.5277233 + 35999.05034 * T_UT1) % 360
 
     # ecliptic longitude
-    lambda_ecliptic = (lambda_M_sun + 1.914666471*np.sin(np.deg2rad(M_sun)) +
-                       0.019994643*np.sin(np.deg2rad(2*M_sun)))
+    lambda_ecliptic = (
+        lambda_M_sun
+        + 1.914666471 * np.sin(np.deg2rad(M_sun))
+        + 0.019994643 * np.sin(np.deg2rad(2 * M_sun))
+    )
 
     # obliquity of the ecliptic (epsilon in Vallado's notation)
-    epsilon = 23.439291 - 0.0130042*T_UT1
+    epsilon = 23.439291 - 0.0130042 * T_UT1
 
     # declination of the sun
-    delta_sun = np.rad2deg(np.arcsin(np.sin(np.deg2rad(epsilon)) *
-                                     np.sin(np.deg2rad(lambda_ecliptic))))
+    delta_sun = np.rad2deg(
+        np.arcsin(np.sin(np.deg2rad(epsilon)) * np.sin(np.deg2rad(lambda_ecliptic)))
+    )
 
     # Greenwich mean sidereal time (seconds)
-    theta_GMST = (67310.54841 +
-                  (876600*3600 + 8640184.812866)*T_UT1 +
-                  0.093104*T_UT1**2 -
-                  6.2e-6*T_UT1**3)
+    theta_GMST = (
+        67310.54841
+        + (876600 * 3600 + 8640184.812866) * T_UT1
+        + 0.093104 * T_UT1 ** 2
+        - 6.2e-6 * T_UT1 ** 3
+    )
     # Convert to degrees
-    theta_GMST = (theta_GMST % 86400)/240
+    theta_GMST = (theta_GMST % 86400) / 240
 
     # Right ascension calculations
-    numerator = (np.cos(np.deg2rad(epsilon)) *
-                 np.sin(np.deg2rad(lambda_ecliptic)) /
-                 np.cos(np.deg2rad(delta_sun)))
-    denominator = (np.cos(np.deg2rad(lambda_ecliptic)) /
-                   np.cos(np.deg2rad(delta_sun)))
+    numerator = (
+        np.cos(np.deg2rad(epsilon))
+        * np.sin(np.deg2rad(lambda_ecliptic))
+        / np.cos(np.deg2rad(delta_sun))
+    )
+    denominator = np.cos(np.deg2rad(lambda_ecliptic)) / np.cos(np.deg2rad(delta_sun))
 
     alpha_sun = np.rad2deg(np.arctan2(numerator, denominator))
 
     # longitude is opposite of Greenwich Hour Angle (GHA)
     # GHA == theta_GMST - alpha_sun
-    lon = -(theta_GMST-alpha_sun)
+    lon = -(theta_GMST - alpha_sun)
     if lon < -180:
         lon += 360
 

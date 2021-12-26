@@ -44,10 +44,15 @@ class GoogleWTS(metaclass=ABCMeta):
     (the default behavior), the tiles are downloaded each time.
 
     """
+
     _MAX_THREADS = 24
 
-    def __init__(self, desired_tile_form='RGB',
-                 user_agent=f'CartoPy/{cartopy.__version__}', cache=False):
+    def __init__(
+        self,
+        desired_tile_form="RGB",
+        user_agent=f"CartoPy/{cartopy.__version__}",
+        cache=False,
+    ):
         self.imgs = []
         self.crs = ccrs.Mercator.GOOGLE
         self.desired_tile_form = desired_tile_form
@@ -84,7 +89,8 @@ class GoogleWTS(metaclass=ABCMeta):
             return img, x, y, origin
 
         with concurrent.futures.ThreadPoolExecutor(
-                max_workers=self._MAX_THREADS) as executor:
+            max_workers=self._MAX_THREADS
+        ) as executor:
             futures = []
             for tile in self.find_images(target_domain, target_z):
                 futures.append(executor.submit(fetch_tile, tile))
@@ -101,10 +107,7 @@ class GoogleWTS(metaclass=ABCMeta):
     @property
     def _cache_dir(self):
         """Return the name of the cache directory"""
-        return os.path.join(
-            self.cache_path,
-            self.__class__.__name__
-        )
+        return os.path.join(self.cache_path, self.__class__.__name__)
 
     def _load_cache(self):
         """Load the cache"""
@@ -114,16 +117,17 @@ class GoogleWTS(metaclass=ABCMeta):
                 os.makedirs(cache_dir)
                 if self._default_cache:
                     warnings.warn(
-                        'Cartopy created the following directory to cache '
-                        f'GoogleWTS tiles: {cache_dir}')
+                        "Cartopy created the following directory to cache "
+                        f"GoogleWTS tiles: {cache_dir}"
+                    )
             self.cache = self.cache.union(set(os.listdir(cache_dir)))
 
     def _find_images(self, target_domain, target_z, start_tile=(0, 0, 0)):
         """Target domain is a shapely polygon in native coordinates."""
 
-        assert isinstance(target_z, int) and target_z >= 0, ('target_z must '
-                                                             'be an integer '
-                                                             '>=0.')
+        assert isinstance(target_z, int) and target_z >= 0, (
+            "target_z must " "be an integer " ">=0."
+        )
 
         # Recursively drill down to the images at the target zoom.
         x0, x1, y0, y1 = self._tileextent(start_tile)
@@ -133,8 +137,9 @@ class GoogleWTS(metaclass=ABCMeta):
                 yield start_tile
             else:
                 for tile in self._subtiles(start_tile):
-                    yield from self._find_images(target_domain, target_z,
-                                                 start_tile=tile)
+                    yield from self._find_images(
+                        target_domain, target_z, start_tile=tile
+                    )
 
     find_images = _find_images
 
@@ -170,10 +175,12 @@ class GoogleWTS(metaclass=ABCMeta):
 
         """
         n = 2 ** z
-        assert 0 <= x <= (n - 1), \
-            f"Tile's x index is out of range. Upper limit {n}. Got {x}"
-        assert 0 <= y <= (n - 1), \
-            f"Tile's y index is out of range. Upper limit {n}. Got {y}"
+        assert (
+            0 <= x <= (n - 1)
+        ), f"Tile's x index is out of range. Upper limit {n}. Got {x}"
+        assert (
+            0 <= y <= (n - 1)
+        ), f"Tile's y index is out of range. Upper limit {n}. Got {y}"
 
         x0, x1 = self.crs.x_limits
         y0, y1 = self.crs.y_limits
@@ -209,10 +216,7 @@ class GoogleWTS(metaclass=ABCMeta):
 
         if self.cache_path is not None:
             filename = "_".join([str(i) for i in tile]) + ".npy"
-            cached_file = os.path.join(
-                self._cache_dir,
-                filename
-            )
+            cached_file = os.path.join(self._cache_dir, filename)
         else:
             filename = None
             cached_file = None
@@ -230,22 +234,29 @@ class GoogleWTS(metaclass=ABCMeta):
 
             except (HTTPError, URLError) as err:
                 print(err)
-                img = Image.fromarray(np.full((256, 256, 3), (250, 250, 250),
-                                              dtype=np.uint8))
+                img = Image.fromarray(
+                    np.full((256, 256, 3), (250, 250, 250), dtype=np.uint8)
+                )
 
             img = img.convert(self.desired_tile_form)
             if self.cache_path is not None:
                 np.save(cached_file, img, allow_pickle=False)
                 self.cache.add(filename)
 
-        return img, self.tileextent(tile), 'lower'
+        return img, self.tileextent(tile), "lower"
 
 
 class GoogleTiles(GoogleWTS):
-    def __init__(self, desired_tile_form='RGB', style="street",
-                 url=('https://mts0.google.com/vt/lyrs={style}'
-                      '@177000000&hl=en&src=api&x={x}&y={y}&z={z}&s=G'),
-                 cache=False):
+    def __init__(
+        self,
+        desired_tile_form="RGB",
+        style="street",
+        url=(
+            "https://mts0.google.com/vt/lyrs={style}"
+            "@177000000&hl=en&src=api&x={x}&y={y}&z={z}&s=G"
+        ),
+        cache=False,
+    ):
         """
         Parameters
         ----------
@@ -265,31 +276,39 @@ World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}.jpg'``
         self.url = url
         if style not in styles:
             raise ValueError(
-                f"Invalid style {style!r}. Valid styles: {', '.join(styles)}")
+                f"Invalid style {style!r}. Valid styles: {', '.join(styles)}"
+            )
         self.style = style
 
         # The 'satellite' and 'terrain' styles require pillow with a jpeg
         # decoder.
-        if self.style in ["satellite", "terrain"] and \
-                not hasattr(Image.core, "jpeg_decoder") or \
-                not Image.core.jpeg_decoder:
+        if (
+            self.style in ["satellite", "terrain"]
+            and not hasattr(Image.core, "jpeg_decoder")
+            or not Image.core.jpeg_decoder
+        ):
             raise ValueError(
                 f"The {self.style!r} style requires pillow with jpeg decoding "
-                "support.")
-        return super().__init__(desired_tile_form=desired_tile_form,
-                                cache=cache)
+                "support."
+            )
+        return super().__init__(desired_tile_form=desired_tile_form, cache=cache)
 
     def _image_url(self, tile):
         style_dict = {
             "street": "m",
             "satellite": "s",
             "terrain": "t",
-            "only_streets": "h"}
+            "only_streets": "h",
+        }
         url = self.url.format(
             style=style_dict[self.style],
-            x=tile[0], X=tile[0],
-            y=tile[1], Y=tile[1],
-            z=tile[2], Z=tile[2])
+            x=tile[0],
+            X=tile[0],
+            y=tile[1],
+            Y=tile[1],
+            z=tile[2],
+            Z=tile[2],
+        )
         return url
 
 
@@ -300,12 +319,16 @@ class MapQuestOSM(GoogleWTS):
     # this now requires a sign up to a plan
     def _image_url(self, tile):
         x, y, z = tile
-        url = f'https://otile1.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.jpg'
-        mqdevurl = ('https://devblog.mapquest.com/2016/06/15/'
-                    'modernization-of-mapquest-results-in-changes'
-                    '-to-open-tile-access/')
-        warnings.warn(f'{url} will require a log in and and will likely'
-                      f' fail. see {mqdevurl} for more details.')
+        url = f"https://otile1.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.jpg"
+        mqdevurl = (
+            "https://devblog.mapquest.com/2016/06/15/"
+            "modernization-of-mapquest-results-in-changes"
+            "-to-open-tile-access/"
+        )
+        warnings.warn(
+            f"{url} will require a log in and and will likely"
+            f" fail. see {mqdevurl} for more details."
+        )
         return url
 
 
@@ -316,7 +339,7 @@ class MapQuestOpenAerial(GoogleWTS):
     #  Farm Service Agency"
     def _image_url(self, tile):
         x, y, z = tile
-        return f'https://oatile1.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.jpg'
+        return f"https://oatile1.mqcdn.com/tiles/1.0.0/sat/{z}/{x}/{y}.jpg"
 
 
 class OSM(GoogleWTS):
@@ -324,7 +347,7 @@ class OSM(GoogleWTS):
 
     def _image_url(self, tile):
         x, y, z = tile
-        return f'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'
+        return f"https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
 
 
 class Stamen(GoogleWTS):
@@ -355,15 +378,14 @@ class Stamen(GoogleWTS):
      * https://github.com/migurski/DEM-Tools
 
     """
-    def __init__(self, style='toner',
-                 desired_tile_form='RGB', cache=False):
-        super().__init__(desired_tile_form=desired_tile_form,
-                         cache=cache)
+
+    def __init__(self, style="toner", desired_tile_form="RGB", cache=False):
+        super().__init__(desired_tile_form=desired_tile_form, cache=cache)
         self.style = style
 
     def _image_url(self, tile):
         x, y, z = tile
-        return f'http://tile.stamen.com/{self.style}/{z}/{x}/{y}.png'
+        return f"http://tile.stamen.com/{self.style}/{z}/{x}/{y}.png"
 
 
 class MapboxTiles(GoogleWTS):
@@ -373,6 +395,7 @@ class MapboxTiles(GoogleWTS):
     For terms of service, see https://www.mapbox.com/tos/.
 
     """
+
     def __init__(self, access_token, map_id, cache=False):
         """
         Set up a new Mapbox tiles instance.
@@ -403,8 +426,10 @@ class MapboxTiles(GoogleWTS):
     def _image_url(self, tile):
         x, y, z = tile
 
-        return (f'https://api.mapbox.com/styles/v1/mapbox/{self.map_id}/tiles'
-                f'/{z}/{x}/{y}?access_token={self.access_token}')
+        return (
+            f"https://api.mapbox.com/styles/v1/mapbox/{self.map_id}/tiles"
+            f"/{z}/{x}/{y}?access_token={self.access_token}"
+        )
 
 
 class MapboxStyleTiles(GoogleWTS):
@@ -416,6 +441,7 @@ class MapboxStyleTiles(GoogleWTS):
     For terms of service, see https://www.mapbox.com/tos/.
 
     """
+
     def __init__(self, access_token, username, map_id, cache=False):
         """
         Set up a new instance to retrieve tiles from a Mapbox style.
@@ -443,9 +469,11 @@ class MapboxStyleTiles(GoogleWTS):
 
     def _image_url(self, tile):
         x, y, z = tile
-        return (f'https://api.mapbox.com/styles/v1/{self.username}'
-                f'/{self.map_id}/tiles/256/{z}/{x}/{y}'
-                f'?access_token={self.access_token}')
+        return (
+            f"https://api.mapbox.com/styles/v1/{self.username}"
+            f"/{self.map_id}/tiles/256/{z}/{x}/{y}"
+            f"?access_token={self.access_token}"
+        )
 
 
 class QuadtreeTiles(GoogleWTS):
@@ -457,10 +485,13 @@ class QuadtreeTiles(GoogleWTS):
     where the length of the quatree is the zoom level in Google Tile terms.
 
     """
+
     def _image_url(self, tile):
-        return ('http://ecn.dynamic.t1.tiles.virtualearth.net/comp/'
-                f'CompositionHandler/{tile}?mkt=en-'
-                'gb&it=A,G,L&shading=hill&n=z')
+        return (
+            "http://ecn.dynamic.t1.tiles.virtualearth.net/comp/"
+            f"CompositionHandler/{tile}?mkt=en-"
+            "gb&it=A,G,L&shading=hill&n=z"
+        )
 
     def tms_to_quadkey(self, tms, google=False):
         quadKey = ""
@@ -482,23 +513,23 @@ class QuadtreeTiles(GoogleWTS):
     def quadkey_to_tms(self, quadkey, google=False):
         # algorithm ported from
         # https://msdn.microsoft.com/en-us/library/bb259689.aspx
-        assert isinstance(quadkey, str), 'quadkey must be a string'
+        assert isinstance(quadkey, str), "quadkey must be a string"
 
         x = y = 0
         z = len(quadkey)
         for i in range(z, 0, -1):
             mask = 1 << (i - 1)
-            if quadkey[z - i] == '0':
+            if quadkey[z - i] == "0":
                 pass
-            elif quadkey[z - i] == '1':
+            elif quadkey[z - i] == "1":
                 x |= mask
-            elif quadkey[z - i] == '2':
+            elif quadkey[z - i] == "2":
                 y |= mask
-            elif quadkey[z - i] == '3':
+            elif quadkey[z - i] == "3":
                 x |= mask
                 y |= mask
             else:
-                raise ValueError(f'Invalid QuadKey digit sequence: {quadkey}')
+                raise ValueError(f"Invalid QuadKey digit sequence: {quadkey}")
         # the algorithm works to google tiles, so convert to tms
         if not google:
             y = (2 ** z - 1) - y
@@ -521,17 +552,18 @@ class QuadtreeTiles(GoogleWTS):
 
         """
         if target_z == 0:
-            raise ValueError('The empty quadtree cannot be returned.')
+            raise ValueError("The empty quadtree cannot be returned.")
 
         if start_tile is None:
-            start_tiles = ['0', '1', '2', '3']
+            start_tiles = ["0", "1", "2", "3"]
         else:
             start_tiles = [start_tile]
 
         for start_tile in start_tiles:
             start_tile = self.quadkey_to_tms(start_tile, google=True)
-            for tile in GoogleWTS.find_images(self, target_domain, target_z,
-                                              start_tile=start_tile):
+            for tile in GoogleWTS.find_images(
+                self, target_domain, target_z, start_tile=start_tile
+            ):
                 yield self.tms_to_quadkey(tile, google=True)
 
 
@@ -547,12 +579,9 @@ class OrdnanceSurvey(GoogleWTS):
     For the API framework agreement, see
     https://developer.ordnancesurvey.co.uk/os-api-framework-agreement.
     """
+
     # API Documentation: https://apidocs.os.uk/docs/os-maps-wmts
-    def __init__(self,
-                 apikey,
-                 layer='Road',
-                 desired_tile_form='RGB',
-                 cache=False):
+    def __init__(self, apikey, layer="Road", desired_tile_form="RGB", cache=False):
         """
         Parameters
         ----------
@@ -568,30 +597,29 @@ class OrdnanceSurvey(GoogleWTS):
         desired_tile_form: optional
             Defaults to 'RGB'.
         """
-        super().__init__(desired_tile_form=desired_tile_form,
-                         cache=cache)
+        super().__init__(desired_tile_form=desired_tile_form, cache=cache)
         self.apikey = apikey
 
-        if layer not in ['Outdoor', 'Road', 'Light', 'Night', 'Leisure']:
-            raise ValueError(f'Invalid layer {layer}')
+        if layer not in ["Outdoor", "Road", "Light", "Night", "Leisure"]:
+            raise ValueError(f"Invalid layer {layer}")
 
         self.layer = layer
 
     def _image_url(self, tile):
         x, y, z = tile
         return (
-            f'https://api2.ordnancesurvey.co.uk/mapping_api/v1/service/wmts?'
-            f'key={self.apikey}&height=256&width=256&version=1.0.0&'
-            f'tilematrixSet=EPSG%3A3857&style=true&layer={self.layer}%203857&'
-            f'SERVICE=WMTS&REQUEST=GetTile&format=image%2Fpng&'
-            f'TileMatrix=EPSG%3A3857%3A{z}&TileRow={y}&TileCol={x}')
+            f"https://api2.ordnancesurvey.co.uk/mapping_api/v1/service/wmts?"
+            f"key={self.apikey}&height=256&width=256&version=1.0.0&"
+            f"tilematrixSet=EPSG%3A3857&style=true&layer={self.layer}%203857&"
+            f"SERVICE=WMTS&REQUEST=GetTile&format=image%2Fpng&"
+            f"TileMatrix=EPSG%3A3857%3A{z}&TileRow={y}&TileCol={x}"
+        )
 
 
 def _merge_tiles(tiles):
     """Return a single image, merging the given images."""
     if not tiles:
-        raise ValueError('A non-empty list of tiles should '
-                         'be provided to merge.')
+        raise ValueError("A non-empty list of tiles should " "be provided to merge.")
     xset = [set(x) for i, x, y, _ in tiles]
     yset = [set(y) for i, x, y, _ in tiles]
 
@@ -608,7 +636,7 @@ def _merge_tiles(tiles):
     for tile_img, x, y, origin in tiles:
         y_first, y_last = y[0], y[-1]
         yi0, yi1 = np.where((y_first == ys) | (y_last == ys))[0]
-        if origin == 'upper':
+        if origin == "upper":
             yi0 = tile_img.shape[0] - yi0 - 1
             yi1 = tile_img.shape[0] - yi1 - 1
         start, stop, step = yi0, yi1, 1 if yi0 < yi1 else -1
@@ -635,18 +663,23 @@ def _merge_tiles(tiles):
 
         img_slice = (y_slice, x_slice, Ellipsis)
 
-        if origin == 'lower':
+        if origin == "lower":
             tile_img = tile_img[::-1, ::]
 
         img[img_slice] = tile_img
 
-    return img, [min(xs), max(xs), min(ys), max(ys)], 'lower'
+    return img, [min(xs), max(xs), min(ys), max(ys)], "lower"
 
 
 class AzureMapsTiles(GoogleWTS):
-
-    def __init__(self, subscription_key, tileset_id="microsoft.imagery",
-                 api_version="2.0", desired_tile_form='RGB', cache=False):
+    def __init__(
+        self,
+        subscription_key,
+        tileset_id="microsoft.imagery",
+        api_version="2.0",
+        desired_tile_form="RGB",
+        cache=False,
+    ):
         """
         Set up a new instance to retrieve tiles from Azure Maps.
 
@@ -674,6 +707,7 @@ class AzureMapsTiles(GoogleWTS):
     def _image_url(self, tile):
         x, y, z = tile
         return (
-            f'https://atlas.microsoft.com/map/tile?'
-            f'api-version={self.api_version}&tilesetId={self.tileset_id}&'
-            f'x={x}&y={y}&zoom={z}&subscription-key={self.subscription_key}')
+            f"https://atlas.microsoft.com/map/tile?"
+            f"api-version={self.api_version}&tilesetId={self.tileset_id}&"
+            f"x={x}&y={y}&zoom={z}&subscription-key={self.subscription_key}"
+        )

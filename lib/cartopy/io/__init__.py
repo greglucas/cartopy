@@ -19,7 +19,7 @@ import warnings
 from cartopy import config
 
 
-def fh_getter(fh, mode='r', needs_filename=False):
+def fh_getter(fh, mode="r", needs_filename=False):
     """
     Convenience function for opening files.
 
@@ -38,7 +38,7 @@ def fh_getter(fh, mode='r', needs_filename=False):
         Opened in the given mode.
 
     """
-    if mode != 'r':
+    if mode != "r":
         raise ValueError('Only mode "r" currently supported.')
 
     if isinstance(fh, str):
@@ -52,15 +52,16 @@ def fh_getter(fh, mode='r', needs_filename=False):
             filename = fh.name
         except AttributeError:  # does this occur?
             if needs_filename:
-                raise ValueError('filename cannot be determined')
+                raise ValueError("filename cannot be determined")
             else:
-                filename = ''
+                filename = ""
 
     return fh, filename
 
 
 class DownloadWarning(Warning):
     """Issued when a file is being downloaded by a :class:`Downloader`."""
+
     pass
 
 
@@ -103,7 +104,7 @@ class Downloader:
 
     """
 
-    FORMAT_KEYS = ('config',)
+    FORMAT_KEYS = ("config",)
     """
     The minimum keys which should be provided in the ``format_dict``
     argument for the ``path``, ``url``, ``target_path``,
@@ -111,8 +112,9 @@ class Downloader:
 
     """
 
-    def __init__(self, url_template, target_path_template,
-                 pre_downloaded_path_template=''):
+    def __init__(
+        self, url_template, target_path_template, pre_downloaded_path_template=""
+    ):
         self.url_template = url_template
         self.target_path_template = target_path_template
         self.pre_downloaded_path_template = pre_downloaded_path_template
@@ -150,8 +152,7 @@ class Downloader:
             expected as a minimum in their ``FORMAT_KEYS`` class attribute.
 
         """
-        return self._formatter.format(self.target_path_template,
-                                      **format_dict)
+        return self._formatter.format(self.target_path_template, **format_dict)
 
     def pre_downloaded_path(self, format_dict):
         """
@@ -167,8 +168,7 @@ class Downloader:
             expected as a minimum in their ``FORMAT_KEYS`` class attribute.
 
         """
-        return self._formatter.format(self.pre_downloaded_path_template,
-                                      **format_dict)
+        return self._formatter.format(self.pre_downloaded_path_template, **format_dict)
 
     def path(self, format_dict):
         """
@@ -193,8 +193,7 @@ class Downloader:
         """
         pre_downloaded_path = self.pre_downloaded_path(format_dict)
         target_path = self.target_path(format_dict)
-        if (pre_downloaded_path is not None and
-                os.path.exists(pre_downloaded_path)):
+        if pre_downloaded_path is not None and os.path.exists(pre_downloaded_path):
             result_path = pre_downloaded_path
         elif os.path.exists(target_path):
             result_path = target_path
@@ -226,7 +225,7 @@ class Downloader:
         # try getting the resource (no exception handling, just let it raise)
         response = self._urlopen(url)
 
-        with open(target_path, 'wb') as fh:
+        with open(target_path, "wb") as fh:
             fh.write(response.read())
 
         return target_path
@@ -238,7 +237,7 @@ class Downloader:
         Caller should close the file handle when finished with it.
 
         """
-        warnings.warn(f'Downloading: {url}', DownloadWarning)
+        warnings.warn(f"Downloading: {url}", DownloadWarning)
         return urlopen(url)
 
     @staticmethod
@@ -276,7 +275,7 @@ class Downloader:
         """
         spec_depth = len(specification)
         if config_dict is None:
-            downloaders = config['downloaders']
+            downloaders = config["downloaders"]
         else:
             downloaders = config_dict
 
@@ -293,13 +292,15 @@ class Downloader:
             # should never really happen, but could if the user does
             # some strange things like not having any downloaders defined
             # in the config...
-            raise ValueError('No generic downloadable item in the config '
-                             f'dictionary for {specification}')
+            raise ValueError(
+                "No generic downloadable item in the config "
+                f"dictionary for {specification}"
+            )
 
         return result_downloader
 
 
-class LocatedImage(collections.namedtuple('LocatedImage', 'image, extent')):
+class LocatedImage(collections.namedtuple("LocatedImage", "image, extent")):
     """
     Define an image and associated extent in the form:
        ``image, (min_x, max_x, min_y, max_y)``
@@ -323,6 +324,7 @@ class RasterSource:
     .. _raster-source-interface:
 
     """
+
     def validate_projection(self, projection):
         """
         Raise an error if this raster source cannot provide images in the
@@ -370,6 +372,7 @@ class RasterSourceContainer(RasterSource):
     contained :class:`RasterSource`.
 
     """
+
     def __init__(self, contained_source):
         """
         Parameters
@@ -381,8 +384,7 @@ class RasterSourceContainer(RasterSource):
         self._source = contained_source
 
     def fetch_raster(self, projection, extent, target_resolution):
-        return self._source.fetch_raster(projection, extent,
-                                         target_resolution)
+        return self._source.fetch_raster(projection, extent, target_resolution)
 
     def validate_projection(self, projection):
         return self._source.validate_projection(projection)
@@ -394,6 +396,7 @@ class PostprocessedRasterSource(RasterSourceContainer):
     post-processing step on the raster fetched from the contained source.
 
     """
+
     def __init__(self, contained_source, img_post_process):
         """
         Parameters

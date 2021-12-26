@@ -7,7 +7,7 @@
 from ._version import version as __version__  # noqa: F401
 import tempfile
 
-__document_these__ = ['config']
+__document_these__ = ["config"]
 
 # Configuration
 import os.path
@@ -15,17 +15,17 @@ import os.path
 # for the writable data directory (i.e. the one where new data goes), follow
 # the XDG guidelines found at
 # https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
-_writable_dir = os.path.join(os.path.expanduser('~'), '.local', 'share')
-_data_dir = os.path.join(os.environ.get("XDG_DATA_HOME", _writable_dir),
-                         'cartopy')
-_cache_dir = os.path.join(tempfile.gettempdir(), 'cartopy_cache_dir')
+_writable_dir = os.path.join(os.path.expanduser("~"), ".local", "share")
+_data_dir = os.path.join(os.environ.get("XDG_DATA_HOME", _writable_dir), "cartopy")
+_cache_dir = os.path.join(tempfile.gettempdir(), "cartopy_cache_dir")
 
-config = {'pre_existing_data_dir': os.environ.get('CARTOPY_DATA_DIR', ''),
-          'data_dir': _data_dir,
-          'cache_dir': _cache_dir,
-          'repo_data_dir': os.path.join(os.path.dirname(__file__), 'data'),
-          'downloaders': {},
-          }
+config = {
+    "pre_existing_data_dir": os.environ.get("CARTOPY_DATA_DIR", ""),
+    "data_dir": _data_dir,
+    "cache_dir": _cache_dir,
+    "repo_data_dir": os.path.join(os.path.dirname(__file__), "data"),
+    "downloaders": {},
+}
 """
 The config dictionary stores global configuration values for cartopy.
 
@@ -88,6 +88,7 @@ del _cache_dir
 # otherwise, fail gracefully.
 try:
     from cartopy.siteconfig import update_config as _update_config
+
     _update_config(config)
 except ImportError:
     pass
@@ -97,6 +98,7 @@ except ImportError:
 # function, otherwise, fail gracefully.
 try:
     from cartopy_userconfig import update_config as _update_config
+
     _update_config(config)
 except ImportError:
     pass
