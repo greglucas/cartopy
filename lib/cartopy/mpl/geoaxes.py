@@ -392,23 +392,27 @@ class GeoAxes(matplotlib.axes.Axes):
     """
     name = 'cartopy.geoaxes'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, projection=None, **kwargs):
         """
         Create a GeoAxes object using standard matplotlib
         :class:`~matplotlib.axes.Axes` args and kwargs.
 
         Parameters
         ----------
-        map_projection: optional
-            The target :class:`~cartopy.crs.Projection` of this Axes object.
-
-
-        All other args and keywords are passed through to
-        :class:`matplotlib.axes.Axes`.
-
+        projection : cartopy.crs.Projection, required
+            The target projection of this Axes.
         """
-        self.projection = kwargs.pop('map_projection')
-        """The :class:`cartopy.crs.Projection` of this GeoAxes."""
+        if "map_projection" in kwargs:
+            warnings.warn("The `map_projection` keyword argument is "
+                          "deprecated, use `projection` to instantiate a "
+                          "GeoAxes instead.")
+            projection = kwargs.pop("map_projection")
+
+        # The :class:`cartopy.crs.Projection` of this GeoAxes.
+        if not isinstance(projection, ccrs.Projection):
+            raise ValueError("A GeoAxes can only be created with a "
+                             "projection of type cartopy.crs.Projection")
+        self.projection = projection
 
         super().__init__(*args, **kwargs)
         self._gridliners = []
