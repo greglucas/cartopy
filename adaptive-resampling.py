@@ -2,8 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
 proj = pyproj.Transformer.from_crs(4326, 3857, always_xy=True)
-# proj = pyproj.Transformer.from_crs(32662, 3857, always_xy=True)
+proj = pyproj.Transformer.from_crs(32662, 3857, always_xy=True)
+proj = pyproj.Transformer.from_crs(3395, 4326, always_xy=True)
+proj_i = pyproj.Transformer.from_crs(4326, 3395, always_xy=True)
+
 
 def spherical(x, y, z):
     """
@@ -72,6 +78,8 @@ radians = np.pi/180
 delta = 0.01
 # delta = 55660
 dd = np.tan(radians*delta/2)**2
+
+
 def resample_line(w0, u0, w1, u1, ll01, depth, array):
     """
     w == input coordinates
@@ -83,7 +91,7 @@ def resample_line(w0, u0, w1, u1, ll01, depth, array):
     depth -= 1
     if not depth:
         return
-    
+
     w2 = planar_midpoint(w0, w1)
     point2 = proj.transform(*w2)
     # u2 = cartesian(*point2)
@@ -119,7 +127,8 @@ def resample_chain(point_array):
         u0 = u1
     return outarray
 
-points = [[2, 40], [30, 7], [50, 50]]
+
+points = [[2, 40], [30, 7], [-50, -50]]
 # points = [[-70.67, -33.45], # Santiago
 #           [-21.88 - 360*4, 64.13]]
 
@@ -136,8 +145,36 @@ print(out == out2[::-1])
 
 fig, ax = plt.subplots()
 
-ax.plot([xs[0], xs[-1]], [ys[0], ys[-1]], c='k')
-ax.plot(xs, ys, c='r', markersize=5, marker='o')
-ax.plot(xs2, ys2, c='b', markersize=2, marker='o')
+# ax.plot([xs[0], xs[-1]], [ys[0], ys[-1]], c='k')
+# ax.plot(xs, ys, c='r', markersize=5, marker='o')
+# ax.plot(xs2, ys2, c='b', markersize=2, marker='o')
+
+# plt.show()
+scale = '110m'
+geoms = cfeature.COASTLINE.with_scale(scale).geometries()
+# ax = plt.axes(projection=ccrs.PlateCarree())
+# ax.coastlines(scale)
+# ax.set_global()
+ax = plt.axes()
+
+for i in range(100):
+    coast1 = next(geoms)
+
+    points = coast1.coords[:]
+    out = points
+    xs = [x[0] for x in out]
+    ys = [x[1] for x in out]
+
+    out = resample_chain(points)
+    if len(points) != len(out):
+        print("BEFORE:", len(points))
+        print("AFTER", len(out))
+    xs2 = [x[0] for x in out]
+    ys2 = [x[1] for x in out]
+
+    xs2, ys2 = proj_i.transform(xs2, ys2)
+
+    ax.plot(xs, ys, c='r', markersize=10, marker='o')
+    ax.plot(xs2, ys2, c='b', markersize=8, marker='o')
 
 plt.show()
