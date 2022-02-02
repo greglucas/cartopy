@@ -75,12 +75,15 @@ def planar_midpoint(p0, p1):
 
 maxDepth = 16
 radians = np.pi/180
-delta = 0.01
+delta = 0.001
+radius = 6378137
+radius = 1
+delta *= radius
 # delta = 55660
 dd = np.tan(radians*delta/2)**2
 
 
-def resample_line(w0, u0, w1, u1, ll01, depth, array):
+def resample_line(w0, u0, w1, u1, ll01, transformer, depth, array):
     """
     w == input coordinates
     u == cartesian coordinates on the sphere
@@ -93,9 +96,9 @@ def resample_line(w0, u0, w1, u1, ll01, depth, array):
         return
 
     w2 = planar_midpoint(w0, w1)
-    point2 = proj.transform(*w2)
-    # u2 = cartesian(*point2)
-    u2 = cartesian(*w2)
+    point2 = transformer.transform(*w2)
+    u2 = cartesian(*point2)
+    # u2 = cartesian(*w2)
     ll02 = stereo_length(u2, u0)
     ll12 = stereo_length(u2, u1)
     AA = stereo_area(u2, u0, u1)
@@ -104,77 +107,114 @@ def resample_line(w0, u0, w1, u1, ll01, depth, array):
     # (ll02 + ll12 > 0.25) forces bisection for over-long segments, and handles ll01 == Infinity edge case
     # (ll02 + ll12 > dd)) stops bisection when the segment gets tiny
     if (((hh + ww > 1) and (ll02 + ll12 > dd)) or (ll02 + ll12 > 0.25)):
-        resample_line(w0, u0, w2, u2, ll02, depth, array)
+        resample_line(w0, u0, w2, u2, ll02, transformer, depth, array)
         array.append(point2)
-        resample_line(w2, u2, w1, u1, ll12, depth, array)
+        resample_line(w2, u2, w1, u1, ll12, transformer, depth, array)
 
 
-def resample_chain(point_array):
+def resample_chain(point_array, proj_from, proj_to):
     outarray = []
     w0 = point_array[0]
-    point0 = proj.transform(*w0)
-    # u0 = cartesian(*point0)
-    u0 = cartesian(*w0)
+    transformer = pyproj.Transformer.from_crs(proj_from, proj_to, always_xy=True)
+    point0 = transformer.transform(*w0)
+    u0 = cartesian(*point0)
+    # u0 = cartesian(*w0)
     outarray.append(point0)
     for i in range(1, len(point_array)):
         w1 = point_array[i]
-        point1 = proj.transform(*w1)
-        # u1 = cartesian(*point1)
-        u1 = cartesian(*w1)
-        resample_line(w0, u0, w1, u1, stereo_length(u0, u1), maxDepth, outarray)
+        point1 = transformer.transform(*w1)
+        u1 = cartesian(*point1)
+        # u1 = cartesian(*w1)
+        resample_line(w0, u0, w1, u1, stereo_length(u0, u1),
+                      transformer, maxDepth, outarray)
         outarray.append(point1)
         w0 = w1
         u0 = u1
     return outarray
 
 
-points = [[2, 40], [30, 7], [-50, -50]]
+points = [[-10, -10], [0, 30], [40, 30], [30, -10], [-10, -10]]
 # points = [[-70.67, -33.45], # Santiago
 #           [-21.88 - 360*4, 64.13]]
 
-out = resample_chain(points)
+# WGS84 lat/lon
+latlon = 4326
+# Mercator
+mercator = 3395
+# Equirectangular (Plate Carree)
+platecarree = 32662
+# Robinson
+robinson = "World_Robinson"
+# Orthographic
+orthographic = 9840
+
+transformer = pyproj.Transformer.from_crs(latlon, robinson, always_xy=True)
+# move from lat/lon coords to our initial projection
+points_projected = [transformer.transform(*p) for p in points]
+
+out = resample_chain(points_projected, proj_from=robinson, proj_to=latlon)
 xs = [x[0] for x in out]
 ys = [x[1] for x in out]
 
-print(len(out))
-out2 = resample_chain(points[::-1])
+print(f"# input points: {len(points)}\n# of output points: {len(out)}")
+out2 = resample_chain(
+    points_projected[::-1], proj_from=robinson, proj_to=latlon)
 xs2 = [x[0] for x in out2]
 ys2 = [x[1] for x in out2]
 
-print(out == out2[::-1])
+print("Forward/Reverse the same?", out == out2[::-1])
 
 fig, ax = plt.subplots()
 
-# ax.plot([xs[0], xs[-1]], [ys[0], ys[-1]], c='k')
-# ax.plot(xs, ys, c='r', markersize=5, marker='o')
-# ax.plot(xs2, ys2, c='b', markersize=2, marker='o')
+ax.plot([xs[0], xs[-1]], [ys[0], ys[-1]], c='k')
+ax.plot(xs, ys, c='r', markersize=5, marker='o')
+ax.set_title("Lat/lon WGS84 coordinates")
 
-# plt.show()
-scale = '110m'
-geoms = cfeature.COASTLINE.with_scale(scale).geometries()
-# ax = plt.axes(projection=ccrs.PlateCarree())
-# ax.coastlines(scale)
-# ax.set_global()
-ax = plt.axes()
+# Now we want to go from Lat/Lon to our output grid
+transformer = pyproj.Transformer.from_crs(latlon, orthographic, always_xy=True)
+fig, ax2 = plt.subplots()
 
-for i in range(100):
-    coast1 = next(geoms)
+points_projected = [transformer.transform(*p) for p in points]
+ax2.set_title("Output projection")
+projected_x = [x[0] for x in points_projected]
+projected_y = [x[1] for x in points_projected]
+ax2.plot(projected_x, projected_y, c='k', markersize=5, marker='o')
 
-    points = coast1.coords[:]
-    out = points
-    xs = [x[0] for x in out]
-    ys = [x[1] for x in out]
-
-    out = resample_chain(points)
-    if len(points) != len(out):
-        print("BEFORE:", len(points))
-        print("AFTER", len(out))
-    xs2 = [x[0] for x in out]
-    ys2 = [x[1] for x in out]
-
-    xs2, ys2 = proj_i.transform(xs2, ys2)
-
-    ax.plot(xs, ys, c='r', markersize=10, marker='o')
-    ax.plot(xs2, ys2, c='b', markersize=8, marker='o')
+# Now convert our "out" (lat/lon) to our final coordinate system
+out_projected = [transformer.transform(*p) for p in out]
+xs = [x[0] for x in out_projected]
+ys = [x[1] for x in out_projected]
+ax2.plot(xs, ys, c='r', markersize=5, marker='o')
 
 plt.show()
+
+
+
+# scale = '110m'
+# geoms = cfeature.COASTLINE.with_scale(scale).geometries()
+# # ax = plt.axes(projection=ccrs.PlateCarree())
+# # ax.coastlines(scale)
+# # ax.set_global()
+# ax = plt.axes()
+
+# for i in range(100):
+#     coast1 = next(geoms)
+
+#     points = coast1.coords[:]
+#     out = points
+#     xs = [x[0] for x in out]
+#     ys = [x[1] for x in out]
+
+#     out = resample_chain(points)
+#     if len(points) != len(out):
+#         print("BEFORE:", len(points))
+#         print("AFTER", len(out))
+#     xs2 = [x[0] for x in out]
+#     ys2 = [x[1] for x in out]
+
+#     xs2, ys2 = proj_i.transform(xs2, ys2)
+
+#     ax.plot(xs, ys, c='r', markersize=10, marker='o')
+#     ax.plot(xs2, ys2, c='b', markersize=8, marker='o')
+
+# plt.show()
