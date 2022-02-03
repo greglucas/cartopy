@@ -137,6 +137,9 @@ def resample_chain(point_array, proj_from, proj_to):
 
 
 points = [[-10, -10], [0, 30], [40, 30], [30, -10], [-10, -10]]
+
+line = shapely.geometry.LineString(points)
+print(line)
 # points = [[-70.67, -33.45], # Santiago
 #           [-21.88 - 360*4, 64.13]]
 
@@ -331,3 +334,33 @@ def split_antimeridian(geom):
     split_polygons = shapely.split(shapely.Polygon(shell, holes), splitter)
 
     return shift_geometry(split_polygons)
+
+
+def transform_geometry(geom, proj_data, proj_map):
+    """Transform an input geometry from proj_data to proj_map."""
+    if geom.type != "LineString":
+        raise NotImplementedError("Geometry not handled yet")
+
+    # Set up our initial transformer, going from proj_data to the sphere
+    coords = resample_chain(geom.coords, proj_from=proj_data, proj_to=latlon)
+    # Our coords now has our interpolated points added
+    # We want to take those coords and map them to our desired map projection
+    transformer = pyproj.Transformer.from_crs(latlon, proj_map, always_xy=True)
+    # move from lat/lon coords to our initial projection
+    coords = [transformer.transform(*p) for p in coords]
+    return shapely.geometry.LineString(coords)
+
+
+points = [[-10, -10], [0, 30], [40, 30], [30, -10], [-10, -10]]
+transformer = pyproj.Transformer.from_crs(latlon, robinson, always_xy=True)
+# move from lat/lon coords to our initial projection
+points_projected = [transformer.transform(*p) for p in points]
+
+line = shapely.geometry.LineString(points_projected)
+print(line)
+output_linestring = transform_geometry(line, robinson, orthographic)
+print(output_linestring)
+
+fig, ax = plt.subplots()
+ax.plot(*output_linestring.xy)
+plt.show()
