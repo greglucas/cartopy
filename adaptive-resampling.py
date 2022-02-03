@@ -1,6 +1,9 @@
+import math
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
+import shapely
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -218,3 +221,113 @@ plt.show()
 #     ax.plot(xs2, ys2, c='b', markersize=8, marker='o')
 
 # plt.show()
+
+def crosses_antimeridian(p0, p1, threshold=180):
+    """
+    Tests whether the two points cross the antimeridian.
+    
+    Parameters
+    ----------
+    p0, p1 : point coordinates
+        Points of a geometry in degrees latitude, longitude.
+    threshold : float
+        The threshold separation distance to consider for whether two points
+        have crossed the antimeridian.
+    """
+    # Test the x coordinates
+    return abs(p1[0] - p0[0]) > threshold
+
+
+def shift_geometry(geom):
+    """
+    Convenience function to shift a geometry away from the antimeridian
+    and avoid issues with wrapping near the transition.
+
+    If the geometry is outside of (-180, 180), add or subtract 360 degrees
+    to shift it to the other side of the domain.
+    """
+    xmin, _, xmax, _ = geom.bounds
+    if xmin < -180:
+        offset = 360
+    elif xmax > 180:
+        offset = -360
+    else:
+        # geometry is fully within the bounds
+        return geom
+    # Translate as appropriate
+    return shapely.affinity.translate(geom, xoff=offset)
+
+
+def split_antimeridian(geom):
+    """Split a geometry at the antimeridian"""
+    shell_minx = shell_maxx = None
+    split_meridians = set()
+    splitter = None
+
+    orig_coords = geom.coords.copy()
+
+    # Iterate over the rings within our Polygon
+    for ring_index, ring in enumerate(geom):
+        if len(ring) < 1:
+            # Ignore empty geoms
+            continue
+        ring_minx = ring_maxx = ring[0][0]
+        crossings = 0
+
+        # Iterate over the coordinates within the ring testing
+        # the consecutive longitudes
+        for i in range(1, len(ring)):
+        # for coord_index, (lon, _) in enumerate(ring[1:], start=1):
+            lon0 = ring[i - 1][0]
+            lon1 = ring[i][0]
+            if crosses_antimeridian(lon1, lon0):
+                direction = math.copysign(1, lon1 - lon0)
+                orig_coords[ring_index][i][0] = lon1 - (direction * 360)
+                crossings += 1
+
+            x_shift = orig_coords[ring_index][i][0]
+            if x_shift < ring_minx:
+                ring_minx = x_shift
+            if x_shift > ring_maxx:
+                ring_maxx = x_shift
+
+        # Ensure that any holes remain contained within the (translated) outer shell
+        if (ring_index == 0):
+            # The first ring is the outer shell of the Polygon
+            shell_minx, shell_maxx = (ring_minx, ring_maxx)
+        elif (ring_minx < shell_minx):
+            # This ring is to the left of the outer shell and needs to be
+            # shifted to the right
+            ring_shift = [[x + 360, y] for (x, y) in orig_coords[ring_index]]
+            orig_coords[ring_index] = ring_shift
+            ring_minx, ring_maxx = (ring_minx + 360, ring_maxx + 360)
+        elif (ring_maxx > shell_maxx):
+            # This ring is to the right of the outer shell and needs to be
+            # shifted to the left
+            ring_shift = [[x - 360, y] for (x, y) in orig_coords[ring_index]]
+            orig_coords[ring_index] = ring_shift
+            ring_minx, ring_maxx = (ring_minx - 360, ring_maxx - 360)
+
+        if crossings:  # keep track of meridians to split on
+            if ring_minx < -180:
+                split_meridians.add(-180)
+            if ring_maxx > 180:
+                split_meridians.add(180)
+
+    n_splits = len(split_meridians)
+    if n_splits > 1:
+        raise NotImplementedError(
+            """Splitting a Polygon by multiple meridians (MultiLineString) 
+               not supported by Shapely"""
+        )
+    elif n_splits == 1:
+        split_lon = next(iter(split_meridians))
+        meridian = [[split_lon, -90.0], [split_lon, 90.0]]
+        splitter = shapely.LineString(meridian)
+    else:
+        return geom
+
+    shell, *holes = orig_coords
+    split_polygons = shapely.split(shapely.Polygon(shell, holes), splitter)
+
+    return shift_geometry(split_polygons)
