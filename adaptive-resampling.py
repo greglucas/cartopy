@@ -153,6 +153,8 @@ platecarree = 32662
 robinson = "World_Robinson"
 # Orthographic
 orthographic = 9840
+# Mollweide
+mollweide = "World_Mollweide"
 
 transformer = pyproj.Transformer.from_crs(latlon, robinson, always_xy=True)
 # move from lat/lon coords to our initial projection
@@ -342,10 +344,13 @@ def transform_geometry(geom, proj_data, proj_map):
         raise NotImplementedError("Geometry not handled yet")
 
     # Set up our initial transformer, going from proj_data to the sphere
-    coords = resample_chain(geom.coords, proj_from=proj_data, proj_to=latlon)
+    # Going to the geodetic transform of our initial projection
+    geodetic = pyproj.CRS(pyproj.CRS(proj_data).geodetic_crs.srs)
+    coords = resample_chain(geom.coords, proj_from=proj_data, proj_to=geodetic)
+    print(geodetic)
     # Our coords now has our interpolated points added
     # We want to take those coords and map them to our desired map projection
-    transformer = pyproj.Transformer.from_crs(latlon, proj_map, always_xy=True)
+    transformer = pyproj.Transformer.from_crs(geodetic, proj_map, always_xy=True)
     # move from lat/lon coords to our initial projection
     coords = [transformer.transform(*p) for p in coords]
     return shapely.geometry.LineString(coords)
