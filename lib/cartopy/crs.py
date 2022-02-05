@@ -24,6 +24,7 @@ from pyproj import Transformer
 from pyproj.exceptions import ProjError
 from shapely.prepared import prep
 
+from cartopy.interpolate import transform_geometry
 import cartopy.trace
 
 
@@ -812,7 +813,9 @@ class Projection(CRS, metaclass=ABCMeta):
         return sgeom.Point(*self.transform_point(point.x, point.y, src_crs))
 
     def _project_line_string(self, geometry, src_crs):
-        return cartopy.trace.project_linear(geometry, src_crs, self)
+        # print(transform_geometry(geometry, src_crs, self))
+        # return cartopy.trace.project_linear(geometry, src_crs, self)
+        return transform_geometry(geometry, src_crs, self)
 
     def _project_linear_ring(self, linear_ring, src_crs):
         """
@@ -825,9 +828,11 @@ class Projection(CRS, metaclass=ABCMeta):
         # 1abc
         # def23ghi
         # jkl41
-        multi_line_string = cartopy.trace.project_linear(linear_ring,
-                                                         src_crs, self)
+        # multi_line_string = cartopy.trace.project_linear(linear_ring,
+        #                                                  src_crs, self)
+        # multi_line_string = sgeom.MultiLineString([transform_geometry(linear_ring, src_crs, self)])
 
+        return [sgeom.LinearRing(transform_geometry(linear_ring, src_crs, self))], sgeom.MultiLineString()
         # Threshold for whether a point is close enough to be the same
         # point as another.
         threshold = max(np.abs(self.x_limits + self.y_limits)) * 1e-5
