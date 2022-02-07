@@ -918,7 +918,7 @@ class Projection(CRS, metaclass=ABCMeta):
         for geom in geometry.geoms:
             r = self._project_line_string(geom, src_crs)
             if r:
-                geoms.extend(r.geoms)
+                geoms.append(r)
         if geoms:
             return sgeom.MultiLineString(geoms)
         else:
@@ -929,7 +929,7 @@ class Projection(CRS, metaclass=ABCMeta):
         for geom in geometry.geoms:
             r = self._project_polygon(geom, src_crs)
             if r:
-                geoms.extend(r.geoms)
+                geoms.append(r)
         if geoms:
             result = sgeom.MultiPolygon(geoms)
         else:
@@ -953,11 +953,15 @@ class Projection(CRS, metaclass=ABCMeta):
         # lines.
         rings = []
         multi_lines = []
+        ext_poly = self._project_line_string(polygon.exterior, src_crs)
+        int_polys = [self._project_line_string(interior, src_crs) for interior in polygon.interiors]
+        poly = sgeom.Polygon(shell=ext_poly, holes=int_polys)
+        return poly if poly.is_valid else sgeom.Polygon()
         for src_ring in [polygon.exterior] + list(polygon.interiors):
             p_rings, p_mline = self._project_linear_ring(src_ring, src_crs)
             if p_rings:
                 rings.extend(p_rings)
-            if len(p_mline.geoms) > 0:
+            if p_mline and len(p_mline.geoms) > 0:
                 multi_lines.append(p_mline)
 
         # Convert any lines to rings by attaching them to the boundary.
