@@ -112,7 +112,7 @@ def resample_chain(point_array, transformer):
     ws = np.array(point_array)
     w0 = point_array[0]
     # Transform the entire array at once
-    ws_x, ws_y = transformer.transform(ws[:, 0], ws[:, 1])
+    ws_x, ws_y = transformer.transform(ws[:, 0], ws[:, 1], errcheck=True)
     u0 = cartesian(ws_x[0], ws_y[0])
     outarray.append((ws_x[0], ws_y[0]))
     for i in range(1, len(ws_x)):
@@ -127,37 +127,56 @@ def resample_chain(point_array, transformer):
     return outarray
 
 @functools.cache
-def _get_transformers(proj_from, proj_to):
+def _get_transformer(proj_from, proj_to):
     """
-    Create the transformer objects going from one projection to another.
-    
-    Returns two transformer objects, one from the original projection to the
-    geodetic representation, and the second transformer going from the
-    geodetic representation to the final projection.
+    Create the transformer objects going from one projection to another,
+    using a cache to make subsequent calls faster.
     """
-    geodetic = proj_from.as_geodetic()
-    transformer1 = pyproj.Transformer.from_crs(
-        proj_from, geodetic, always_xy=True)
-    transformer2 = pyproj.Transformer.from_crs(
-        geodetic, proj_to, always_xy=True)
-    return transformer1, transformer2
+    return pyproj.Transformer.from_crs(proj_from, proj_to, always_xy=True)
 
 
-def transform_geometry(geom, proj_data, proj_map):
-    """Transform an input geometry from proj_data to proj_map."""
+def transform_geometry(geom, proj_data, proj_dest):
+    """
+    Transform an input geometry from our data projection to the
+    destination projection.
+    """
     if geom.type not in ("LineString", "LinearRing"):
         raise NotImplementedError("Geometry not handled yet")
 
-    # Set up our initial transformer, going from proj_data to the sphere
-    # Going to the geodetic transform of our initial projection
-    print("Transforming geometry")
-    transformer1, transformer2 = _get_transformers(proj_data, proj_map)
-    coords = resample_chain(geom.coords, transformer1)
 
-    print(f"IN: {len(geom.coords)}, OUT: {len(coords)}")
+    transformer = _get_transformer(proj_data, proj_dest)
+    coords = resample_chain(geom.coords, transformer)
+    # print("GML", coords)
+    return shapely.geometry.LineString(coords)
+    # return type(geom)(np.stack(coords).T)
+
     # Our coords now has our interpolated points added
     # We want to take those coords and map them to our desired map projection
     # move from lat/lon coords to our initial projection
     coords_arr = np.array(coords)
-    coords = transformer2.transform(coords_arr[:, 0], coords_arr[:, 1])
+    # Reverse transform the domain to the sphere
+    # We need to erode the boundary slightly due to points potentially being
+    # just outside the domain with floating point precision
+    # scale_factor = 1 - 1e-6
+    # domain = shapely.affinity.scale(
+    #     proj_map.domain, xfact=scale_factor, yfact=scale_factor)
+    # sphere_domain = resample_chain(domain.exterior.coords, transformer3)
+
+    # Create the domain in spherical coords, and clip to the back-projected
+    # domain.
+    # sphere_geom = shapely.geometry.LineString(coords_arr)
+    # domain_poly = shapely.geometry.Polygon(sphere_domain)
+    # Linestring intersected with the Polygon of the domain
+    # sphere_geom = sphere_geom.intersection(domain_poly)
+    # We could have multi-part geometries here now
+    if isinstance(sphere_geom, shapely.geometry.LineString):
+        sphere_geom = shapely.geometry.MultiLineString([sphere_geom])
+    # Iterate over all geometries in the multi-part geometry
+    for geom in sphere_geom.geoms:
+        sphere_geom_arr = np.array(geom.coords)
+
+    # print("FINAL-1:", coords_arr[:, 0], coords_arr[:, 1])
+    # coords = transformer2.transform(coords_arr[:, 0], coords_arr[:, 1])
+    # coords = transformer2.transform(sphere_geom_arr[:, 0], sphere_geom_arr[:, 1])
+    # print("FINAL:", np.stack(coords).T)
     return type(geom)(np.stack(coords).T)

@@ -813,9 +813,30 @@ class Projection(CRS, metaclass=ABCMeta):
         return sgeom.Point(*self.transform_point(point.x, point.y, src_crs))
 
     def _project_line_string(self, geometry, src_crs):
-        # print(transform_geometry(geometry, src_crs, self))
-        # return cartopy.trace.project_linear(geometry, src_crs, self)
-        return transform_geometry(geometry, src_crs, self)
+        print("GML enter")
+        print(geometry)
+        if not src_crs.is_geodetic():
+            # We first transform to the geodetic representation of the
+            # source coordinate frame
+            geodetic = src_crs.as_geodetic()
+            geometry = transform_geometry(geometry, src_crs, geodetic)
+            print("GML geodetic")
+            print(geometry)
+        else:
+            geodetic = src_crs
+        
+        # Now we are in a geodetic frame and can project to destination
+        # without resampling, we did the resampling from proj1 -> geod
+        # so that our interpolation was in our data projection
+        coords = np.array(geometry.coords)
+        dest_coords = self.transform_points(
+            geodetic, coords[:, 0], coords[:, 1])
+
+        final_geometry = type(geometry)(dest_coords)
+        # print("GML exit")
+        # print(final_geometry)
+        return final_geometry
+        # return transform_geometry(geometry, geodetic, self)
 
     def _project_linear_ring(self, linear_ring, src_crs):
         """
