@@ -813,15 +813,11 @@ class Projection(CRS, metaclass=ABCMeta):
         return sgeom.Point(*self.transform_point(point.x, point.y, src_crs))
 
     def _project_line_string(self, geometry, src_crs):
-        print("GML enter")
-        print(geometry)
         if not src_crs.is_geodetic():
             # We first transform to the geodetic representation of the
             # source coordinate frame
             geodetic = src_crs.as_geodetic()
             geometry = transform_geometry(geometry, src_crs, geodetic)
-            print("GML geodetic")
-            print(geometry)
         else:
             geodetic = src_crs
         
@@ -833,8 +829,6 @@ class Projection(CRS, metaclass=ABCMeta):
             geodetic, coords[:, 0], coords[:, 1])
 
         final_geometry = type(geometry)(dest_coords)
-        # print("GML exit")
-        # print(final_geometry)
         return final_geometry
         # return transform_geometry(geometry, geodetic, self)
 

@@ -146,7 +146,6 @@ def transform_geometry(geom, proj_data, proj_dest):
 
     transformer = _get_transformer(proj_data, proj_dest)
     coords = resample_chain(geom.coords, transformer)
-    # print("GML", coords)
     return shapely.geometry.LineString(coords)
     # return type(geom)(np.stack(coords).T)
 
