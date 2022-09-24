@@ -463,6 +463,78 @@ cdef void _project_segment(double[:] src_from, double[:] src_to,
             if state == POINT_IN:
                 lines.new_line()
 
+cdef void resample_line(double[:] src_from, double[:] dest_from,
+                  double[:] src_to, double[:] dest_to,
+                  Transformer transformer,
+                  int depth,
+                  list arr) except *:
+    """
+    src_from, src_to: double[2]
+        Source coordinates
+    dest_from, dest_to: double[2]
+        Destination coordinates
+    transformer: pyproj.Transformer
+        Object to transform from source coordinates to destination coordinates
+    depth: int
+        Current depth of our resampling
+    arr: list
+        array of coordinates
+    """
+    depth -= 1
+    if depth == 0:
+        return
+
+    # Calculate the midpoint in source coordinates
+    double[:] src_mid = (src_from + src_to) / 2
+    # Transform the midpoint to the destination
+    double[:] dest_mid = transformer.transform(src_mid)
+
+    # Now test whether the midpoint meets the criteria
+    # Just use a simple triangle area for now based on the threshold.
+    # If the point chosen makes a smaller triangle than one with the threshold,
+    # consider it a good point. Otherwise, the point was too far away (creating
+    # too large of an angle, so keep bisecting)
+    # Just assume that the threshold sticks out perpendicular to get the area of
+    # the initial triangle
+    # base * height / 2
+    test_area = dist_between_points(dest_from, dest_to) * threshold / 2
+    # Now calculate the area of the projected point triangle
+    projected_area = three_point_area(dest_from, dest_mid, dest_to)
+
+    if projected_area > test_area:
+        # Continue on down the resampling path, starting with the left path
+        # (dest_from -> dest_mid)
+        resample_line(src_from, dest_from, src_mid, dest_mid, transformer, depth, arr)
+        # Add the midpoint to our list
+        arr.append(dest_mid)
+        # Start bisection on the right path
+        # (dest_mid -> dest_to)
+        resample_line(src_mid, dest_mid, src_to, dest_to, transformer, depth, arr)
+
+
+cdef double dist_between_points(double[:] p0, double[:], p1):
+    """Calculate the distance between two points"""
+    return sqrt((p1[0] - p0[0])**2 + (p1[1] - p0[1])**2)
+
+cdef double three_point_area(double[:] p0, double[:] p1, double[:] p2):
+    """
+    Calculates the area of three points (p0, p1, p2) using Heron's formula.
+    """
+    # Best to arrange these from longest to shortest for numerical stability
+    a = dist_between_points(p2, p0)
+    b = dist_between_points(p1, p0)
+    c = dist_between_points(p2, p1)
+    if b > a:
+        # Swap a, b to sort properly
+        a, b = b, A
+    if c > a:
+        # Place c at the beginning
+        a, b, c = c, a, b
+    elif c > b:
+        # swap b and c
+        b, c = c, b
+    return sqrt((a + (b + c))*(c - (a - b))*(c + (a - b))*(a + (b - c)))/4
+
 
 @lru_cache(maxsize=4)
 def _interpolator(src_crs, dest_projection):
@@ -519,9 +591,9 @@ def project_linear(geometry not None, src_crs not None,
 
     src_size = len(src_coords)  # check exceptions
 
-    lines = LineAccumulator()
+    lines = list()
     for src_idx in range(1, src_size):
-        _project_segment(src_coords[src_idx - 1, :], src_coords[src_idx, :],
+        resample_line(src_coords[src_idx - 1, :], src_coords[src_idx, :],
                          interpolator, gp_domain, threshold, lines);
 
     del gp_domain
