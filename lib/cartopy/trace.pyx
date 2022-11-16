@@ -524,7 +524,7 @@ def _interpolator(src_crs, dest_projection):
 
 
 def project_linear(geometry not None, src_crs not None,
-                   dest_projection not None):
+                   dest_projection not None, skip_interpolation=False):
     """
     Project a geometry from one projection to another.
 
@@ -536,6 +536,8 @@ def project_linear(geometry not None, src_crs not None,
         The coordinate system of the line to be projected.
     dest_projection : cartopy.crs.Projection
         The projection for the resulting projected line.
+    skip_interpolation : bool
+        Whether to skip interpolating/bisecting the line segment.
 
     Returns
     -------
@@ -559,6 +561,9 @@ def project_linear(geometry not None, src_crs not None,
 
     src_coords = np.asarray(geometry.coords)
     dest_coords = interpolator.project_points(src_coords)
+    if skip_interpolation:
+        return sgeom.MultiLineString([dest_coords])
+
     gp_domain = sprep.prep(g_domain)
 
     src_size = len(src_coords)  # check exceptions

@@ -811,7 +811,7 @@ class Projection(CRS, metaclass=ABCMeta):
         return sgeom.Point(*self.transform_point(point.x, point.y, src_crs))
 
     def _project_line_string(self, geometry, src_crs):
-        return cartopy.trace.project_linear(geometry, src_crs, self)
+        return cartopy.trace.project_linear(geometry, src_crs, self, skip_interpolation=True)
 
     def _project_linear_ring(self, linear_ring, src_crs):
         """
@@ -825,7 +825,7 @@ class Projection(CRS, metaclass=ABCMeta):
         # def23ghi
         # jkl41
         multi_line_string = cartopy.trace.project_linear(linear_ring,
-                                                         src_crs, self)
+                                                         src_crs, self, skip_interpolation=True)
 
         # Threshold for whether a point is close enough to be the same
         # point as another.
