@@ -64,8 +64,7 @@ Additional extensions
 ~~~~~~~~~~~~~~~~~~~~~
 
 Extra functionality that is primarily intended for developers. They describe
-some of the capabilities for transforming
-between GEOS, Shapely, and Matplotlib paths.
+some of the capabilities for transforming between Shapely, and Matplotlib paths.
 
 .. autosummary::
     :toctree: generated/
