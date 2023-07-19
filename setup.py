@@ -17,29 +17,19 @@ HERE = Path(__file__).parent
 IS_SDIST = (HERE / 'PKG-INFO').exists()
 FORCE_CYTHON = os.environ.get('FORCE_CYTHON', False)
 
-if not IS_SDIST or FORCE_CYTHON:
+USE_CYTHON = not IS_SDIST or FORCE_CYTHON
+if USE_CYTHON:
     import Cython
     if Cython.__version__ < '0.29':
         raise ImportError(
             "Cython 0.29+ is required to install cartopy from source.")
-
-    from Cython.Distutils import build_ext as cy_build_ext
     ext = '.pyx'
-    cmdclass = {'build_ext': cy_build_ext}
 else:
     ext = '.cpp'
-    cmdclass = {}
 
-# General extension paths
-compiler_directives = {}
+# Macros to enable Cython coverage
 define_macros = []
-
-compiler_directives['profile'] = True
-compiler_directives['linetrace'] = True
-
-
-cython_coverage_enabled = os.environ.get('CYTHON_COVERAGE', False)
-if cython_coverage_enabled:
+if os.environ.get('CYTHON_COVERAGE'):
     define_macros.append(('CYTHON_TRACE_NOGIL', '1'))
 
 extensions = [
@@ -51,11 +41,11 @@ extensions = [
         define_macros=define_macros),
 ]
 
-
-if cython_coverage_enabled:
+if USE_CYTHON:
     # We need to explicitly cythonize the extension in order
     # to control the Cython compiler_directives.
     from Cython.Build import cythonize
+    compiler_directives = {"profile": True, "linetrace": True}
     extensions = cythonize(extensions, compiler_directives=compiler_directives)
 
 
@@ -63,6 +53,4 @@ if cython_coverage_enabled:
 # ==========
 setup(
     ext_modules=extensions,
-    cmdclass=cmdclass,
-
 )
