@@ -820,6 +820,8 @@ def test_quiver_rotated_pole():
 @pytest.mark.natural_earth
 @pytest.mark.mpl_image_compare(filename='quiver_regrid.png')
 def test_quiver_regrid():
+    # scipy required for regridding
+    pytest.importorskip("scipy")
     x = np.arange(-60, 42.5, 2.5)
     y = np.arange(30, 72.5, 2.5)
     x2d, y2d = np.meshgrid(x, y)
@@ -840,6 +842,8 @@ def test_quiver_regrid():
 @pytest.mark.mpl_image_compare(filename='quiver_regrid_with_extent.png',
                                tolerance=0.54)
 def test_quiver_regrid_with_extent():
+    # scipy required for regridding
+    pytest.importorskip("scipy")
     x = np.arange(-60, 42.5, 2.5)
     y = np.arange(30, 72.5, 2.5)
     x2d, y2d = np.meshgrid(x, y)
@@ -883,6 +887,8 @@ def test_barbs():
 @pytest.mark.natural_earth
 @pytest.mark.mpl_image_compare(filename='barbs_regrid.png')
 def test_barbs_regrid():
+    # scipy required for regridding
+    pytest.importorskip("scipy")
     x = np.arange(-60, 42.5, 2.5)
     y = np.arange(30, 72.5, 2.5)
     x2d, y2d = np.meshgrid(x, y)
@@ -903,6 +909,8 @@ def test_barbs_regrid():
 @pytest.mark.mpl_image_compare(filename='barbs_regrid_with_extent.png',
                                tolerance=0.54)
 def test_barbs_regrid_with_extent():
+    # scipy required for regridding
+    pytest.importorskip("scipy")
     x = np.arange(-60, 42.5, 2.5)
     y = np.arange(30, 72.5, 2.5)
     x2d, y2d = np.meshgrid(x, y)
@@ -958,6 +966,8 @@ def test_barbs_1d_transformed():
 @pytest.mark.natural_earth
 @pytest.mark.mpl_image_compare(filename='streamplot.png', style='mpl20')
 def test_streamplot():
+    # scipy required for regridding
+    pytest.importorskip("scipy")
     x = np.arange(-60, 42.5, 2.5)
     y = np.arange(30, 72.5, 2.5)
     x2d, y2d = np.meshgrid(x, y)

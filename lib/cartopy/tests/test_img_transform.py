@@ -7,7 +7,17 @@
 import numpy as np
 from numpy.testing import assert_array_equal
 import pytest
-import scipy.spatial
+
+
+try:
+    import scipy  # noqa: F401
+except ImportError:
+    try:
+        import pykdtree  # noqa: F401
+    except ImportError:
+        pytest.skip("one of scipy or pykdtree are required for image transforms",
+                    allow_module_level=True)
+
 
 import cartopy.crs as ccrs
 import cartopy.img_transform as img_trans
@@ -128,6 +138,10 @@ def test_regridding_with_invalid_extent(target_prj, use_scipy, monkeypatch):
 
     if use_scipy:
         monkeypatch.setattr(img_trans, "_is_pykdtree", False)
+        try:
+            import scipy.spatial
+        except ImportError:
+            pytest.skip("scipy is required for this test")
         monkeypatch.setattr(img_trans, "_kdtreeClass", scipy.spatial.cKDTree)
     _ = img_trans.regrid(data, lons, lats, data_trans, target_prj,
                          target_x, target_y)
