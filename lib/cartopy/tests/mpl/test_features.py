@@ -10,6 +10,12 @@ import pytest
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+from cartopy.tests.conftest import _HAS_PYKDTREE_OR_SCIPY
+
+
+if not _HAS_PYKDTREE_OR_SCIPY:
+    pytest.skip('pykdtree or scipy is required', allow_module_level=True)
+
 from cartopy.io.ogc_clients import _OWSLIB_AVAILABLE
 
 

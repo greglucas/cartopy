@@ -23,6 +23,11 @@ from cartopy.mpl import _MPL_38
 from cartopy.mpl.feature_artist import FeatureArtist
 import cartopy.mpl.geoaxes as cgeoaxes
 import cartopy.mpl.patch
+from cartopy.tests.conftest import _HAS_PYKDTREE_OR_SCIPY
+
+
+if not _HAS_PYKDTREE_OR_SCIPY:
+    pytest.skip('pykdtree or scipy is required', allow_module_level=True)
 
 
 def sample_data(shape=(73, 145)):

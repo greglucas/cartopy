@@ -8,16 +8,12 @@ import numpy as np
 from numpy.testing import assert_array_equal
 import pytest
 
+from cartopy.tests.conftest import (_HAS_PYKDTREE, _HAS_SCIPY, requires_pykdtree,
+                                    requires_scipy)
 
-try:
-    import scipy  # noqa: F401
-except ImportError:
-    try:
-        import pykdtree  # noqa: F401
-    except ImportError:
-        pytest.skip("one of scipy or pykdtree are required for image transforms",
-                    allow_module_level=True)
 
+if not (_HAS_PYKDTREE or _HAS_SCIPY):
+    pytest.skip("pykdtree or scipy are required", allow_module_level=True)
 
 import cartopy.crs as ccrs
 import cartopy.img_transform as img_trans
@@ -123,7 +119,8 @@ def test_gridding_data_outside_projection():
 
 @pytest.mark.parametrize("target_prj",
                          (ccrs.Mollweide(), ccrs.Orthographic()))
-@pytest.mark.parametrize("use_scipy", (True, False))
+@pytest.mark.parametrize("use_scipy", (pytest.param(True, marks=requires_scipy),
+                                       pytest.param(False, marks=requires_pykdtree)))
 def test_regridding_with_invalid_extent(target_prj, use_scipy, monkeypatch):
     # tests that when a valid extent results in invalid points in the
     # transformed coordinates, the regridding does not error.
@@ -138,10 +135,7 @@ def test_regridding_with_invalid_extent(target_prj, use_scipy, monkeypatch):
 
     if use_scipy:
         monkeypatch.setattr(img_trans, "_is_pykdtree", False)
-        try:
-            import scipy.spatial
-        except ImportError:
-            pytest.skip("scipy is required for this test")
+        import scipy.spatial
         monkeypatch.setattr(img_trans, "_kdtreeClass", scipy.spatial.cKDTree)
     _ = img_trans.regrid(data, lons, lats, data_trans, target_prj,
                          target_x, target_y)
