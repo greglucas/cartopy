@@ -10,6 +10,7 @@ from numpy.testing import assert_array_almost_equal
 import pytest
 
 import cartopy.crs as ccrs
+from cartopy.tests.conftest import requires_scipy
 
 
 def test_contour_plot_bounds():
@@ -70,13 +71,11 @@ def test_plot_after_contour_doesnt_shrink(func):
     assert_array_almost_equal(ax.get_extent(), expected)
 
 
+@requires_scipy
 def test_contour_linear_ring():
     """Test contourf with a section that only has 3 points."""
-    try:
-        from scipy.interpolate import NearestNDInterpolator
-        from scipy.signal import convolve2d
-    except ImportError:
-        pytest.skip("scipy is required for this test")
+    from scipy.interpolate import NearestNDInterpolator
+    from scipy.signal import convolve2d
 
     ax = plt.axes([0.01, 0.05, 0.898, 0.85], projection=ccrs.Mercator(),
                   aspect='equal')
