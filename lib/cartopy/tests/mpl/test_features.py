@@ -13,10 +13,8 @@ import cartopy.feature as cfeature
 from cartopy.tests.conftest import _HAS_PYKDTREE_OR_SCIPY
 
 
-if not _HAS_PYKDTREE_OR_SCIPY:
-    pytest.skip('pykdtree or scipy is required', allow_module_level=True)
-
-from cartopy.io.ogc_clients import _OWSLIB_AVAILABLE
+if _HAS_PYKDTREE_OR_SCIPY:
+    from cartopy.io.ogc_clients import _OWSLIB_AVAILABLE
 
 
 @pytest.mark.filterwarnings("ignore:Downloading")
@@ -49,6 +47,7 @@ def test_natural_earth_custom():
     return ax.figure
 
 
+@pytest.mark.skipif(not _HAS_PYKDTREE_OR_SCIPY, reason='pykdtree or scipy is required')
 @pytest.mark.mpl_image_compare(filename='gshhs_coastlines.png', tolerance=0.95)
 def test_gshhs():
     ax = plt.axes(projection=ccrs.Mollweide())
@@ -64,7 +63,8 @@ def test_gshhs():
 
 
 @pytest.mark.network
-@pytest.mark.skipif(not _OWSLIB_AVAILABLE, reason='OWSLib is unavailable.')
+@pytest.mark.skipif(not _HAS_PYKDTREE_OR_SCIPY or not _OWSLIB_AVAILABLE,
+                    reason='OWSLib and at least one of pykdtree or scipy is required')
 @pytest.mark.xfail(raises=ParseError,
                    reason="Bad XML returned from the URL")
 @pytest.mark.mpl_image_compare(filename='wfs.png')
@@ -79,7 +79,8 @@ def test_wfs():
 
 
 @pytest.mark.network
-@pytest.mark.skipif(not _OWSLIB_AVAILABLE, reason='OWSLib is unavailable.')
+@pytest.mark.skipif(not _HAS_PYKDTREE_OR_SCIPY or not _OWSLIB_AVAILABLE,
+                    reason='OWSLib and at least one of pykdtree or scipy is required')
 @pytest.mark.xfail(raises=ParseError,
                    reason="Bad XML returned from the URL")
 @pytest.mark.mpl_image_compare(filename='wfs_france.png')
