@@ -1281,7 +1281,8 @@ class GeoAxes(matplotlib.axes.Axes):
                           y0 - eps <= extent[3] <= y1 + eps))
 
         if (transform is None or transform == self.transData or
-                same_projection and inside_bounds):
+                same_projection and inside_bounds and
+                kwargs.get("regrid_shape", None) is None):
             result = super().imshow(img, *args, **kwargs)
         else:
             extent = kwargs.pop('extent', None)
